@@ -1,0 +1,38 @@
+# Ubuntu Server 部署记录：LAMP + Pikachu 靶场
+
+## 一、DNS 解析排障
+
+**问题**：ping 不通 www.baidu.com
+
+**排查过程**：
+1. ping 不通外网页面，先检查 VMware DHCP Service 和 VMware NAT Service 是否正常运行
+2. 网络改为桥接模式，经检查 /etc/resolv.conf 被锁保护（不是权限、不是 immutable、不是 AppArmor/SELinux）
+3. `mount --bind` 用一个可写的文件挂住 `/etc/resolv.conf`
+4. 固化配置
+
+```bash
+sudo umount /etc/resolv.conf
+echo -e "nameserver 127.0.0.53\nnameserver 223.5.5.5\nnameserver 8.8.8.8" | sudo tee /etc/resolv.conf.custom
+echo "/etc/resolv.conf.custom /etc/resolv.conf none bind,nofail 0 0" | sudo tee -a /etc/fstab
+```
+
+## 二、安装 Apache
+
+```bash
+sudo apt install apache2 -y
+systemctl status apache2 --no-pager
+curl -I http://127.0.0.1
+```
+
+## 三、安装 MySQL
+
+```bash
+sudo apt install mysql-server -y
+```
+
+## 四、安装 PHP 与常用扩展
+
+```bash
+sudo apt install php php-mysql php-cli php-curl php-gd php-mbstring php-xml php-zip libapache2-mod-php -y
+```
+
