@@ -4,7 +4,7 @@
 
 #### find
 
-![image-20260927152728045](week02.assets/image-20260927152728045.png)
+![image-20260927152728045](week02-权限与用户管理.assets/image-20260927152728045.png)
 
 ##### 应用实例
 
@@ -61,7 +61,7 @@ cat -n /home/hello.txt | grep "yes" #案例1:请在hello.txt文件中,查找“y
 grep -n "yes" /home/hello.java  #法二
 ```
 
-![image-20260927160934137](week02.assets/image-20260927160934137.png)
+![image-20260927160934137](week02-权限与用户管理.assets/image-20260927160934137.png)
 
 ## 压缩和解压
 
@@ -83,7 +83,7 @@ gzip /home/hello.txt
 gunzip /home/hello.txt.gz
 ```
 
-![image-20260927215505007](week02.assets/image-20260927215505007.png)
+![image-20260927215505007](week02-权限与用户管理.assets/image-20260927215505007.png)
 
 #### zip/unzip 指令
 
@@ -106,7 +106,7 @@ unzip  [选项]  XXX.zip   (功能描述:解压缩文件)
 
 ##### 应用实例
 
-![image-20260927224303438](week02.assets/image-20260927224303438.png)
+![image-20260927224303438](week02-权限与用户管理.assets/image-20260927224303438.png)
 
 ```bash
 #案例1:将/home下的 所有文件进行压缩成 myhome.zip
@@ -115,9 +115,9 @@ zip -r myhome.zip /home/*#(*可有可无但都表示home及其下面的文件夹
 uzip -d   /opt/tmp home/myhome.zip  
 ```
 
-![image-20260927224216356](week02.assets/image-20260927224216356.png)
+![image-20260927224216356](week02-权限与用户管理.assets/image-20260927224216356.png)
 
-![image-20260927224240513](week02.assets/image-20260927224240513.png)
+![image-20260927224240513](week02-权限与用户管理.assets/image-20260927224240513.png)
 
 #### tar指令
 
