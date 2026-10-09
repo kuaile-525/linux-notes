@@ -412,18 +412,18 @@ xh,xq:土匪
 1. 创建组 groupadd police;groupadd banidit
 
 2. 创建用户（**要设置密码的，不设，普通用户无法切换到它**）
-  useradd -m -g police jack ; useradd -m -g police jerry
-  useradd -m -g bandit xh; useradd -m -g bandit xq
+    useradd -m -g police jack ; useradd -m -g police jerry
+    useradd -m -g bandit xh; useradd -m -g bandit xq
 
 3. jack创建一个文件,自己可以读r写w,本组人可以读,其它组没人任何权限
-  首先jack登录  ; 
+    首先jack登录  ; 
 
   **cd /home/jack里创建jack.txt与登陆进去jack创建文件是不一样的，这个首先错了**
 
    vim jack.txt                    chmod 640 jack.txt
 
 4. jack修改该文件,让其它组人可以读,本组人可以读写
-  chmod g=rw,o=r  jack.txt
+    chmod g=rw,o=r  jack.txt
 
   ![image-20261008154709009](week02-权限与用户管理.assets/image-20261008154709009.png)
 
@@ -432,7 +432,7 @@ xh,xq:土匪
   （在root，❌）
 
 5. xh 投靠 警察,看看是否可以读写.
-  usermod -g police xh（回root）
+    usermod -g police xh（回root）
 
 6. 测试,看看xh是否可以读写,xq是否可以,小结论,就是如果要对目录内的文件进行操作,需要有对该目录的相应权限
 
@@ -587,3 +587,21 @@ crontab-e
  crontab-I:  列出当前有哪些任务调度
 
 service crond restart   [重启任务调度]
+
+
+
+## at定时任务
+
+### 基本介绍
+
+1. at命令是一次性定时计划任务,at的守护进程atd会以后台模式运行,检查作业队列来运行。
+2. 默认情况下,atd守护进程每60秒检查作业队列,有作业时,会检查作业运行时间,如果时间与当前时间匹配,则运行此作业。
+3. at命令是一次性定时计划任务,执行完一个任务后不再执行此任务了
+4. 在使用at命令的时候,一定要保证atd进程的启动,可以使用相关指令来查看
+
+​     ps -ef (检测正在运行的进程有哪些)
+
+### at命令格式
+
+at [ 选项 ] [时间]
+Ctrl+D 结束at命令的输入
