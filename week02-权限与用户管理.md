@@ -577,20 +577,24 @@ chmod u+x /home/my.sh
 crontab-e    */1**** /home/my.sh
 #案例3:每天凌晨2:00将mysql数据库testdb,备份到文件中。提示:指令为mysqldump-u root-p密码 数据库> >/home/db.bak
 crontab-e
-0 2 *** mysqldump-u root-proot testdb > >/home/db.bak
+0 2 *** mysqldump -u root -proot testdb > /home/db.bak
 ```
 
 #### crond 相关指令
 
- conrtab-r:  终止任务调度。
+ conrtab -r:  终止任务调度。
 
- crontab-I:  列出当前有哪些任务调度
+ crontab -l:  列出当前有哪些任务调度
 
 service crond restart   [重启任务调度]
 
 
 
 ## at定时任务
+
+![image-20261010221912155](week02-权限与用户管理.assets/image-20261010221912155.png)
+
+(执行完毕会清除)
 
 ### 基本介绍
 
@@ -604,4 +608,60 @@ service crond restart   [重启任务调度]
 ### at命令格式
 
 at [ 选项 ] [时间]
-Ctrl+D 结束at命令的输入
+Ctrl+D 结束at命令的输入   **做两次**
+
+### at命令选项
+
+![image-20261010214335359](week02-权限与用户管理.assets/image-20261010214335359.png)
+
+### at时间定义
+
+at指定时间的方法:
+
+1. 接受在当天的hh:mm(小时:分钟)式的时间指定。假如该时间已过去,那么就放在第二天执行。例如:
+04:00
+2. 便用midnight(深夜),noon(中午),teatime(饮茶时间,一般是下午4点)等比较模糊的词语来指
+定时间。
+3. 采用12小时计时制,即在时间后面加上AM(上午)或PM(下午)来说明是上午还是下午。例如:12pm
+4. 指定命令执行的具体日期,指定格式为month day(月日)或mm/dd/yy(月/日/年)或dd.mm.yy
+(日.月.年),指定的日期必须跟在指定时间的后面。例如:04:00 2021-03-1（小的实践在大的日期前面）
+5. 使用相对计时法。指定格式为:now+count time-units,now就是当前时间,time-units是时间单位,
+这里能够是minutes(分钟)、hours(小时)、days(天)、weeks(星期)。count是时间的数量,
+几天,几小时。例如:now+5 minutes
+6. 直接使用today(今天)、tomorrow(明天)来指定完成命令的时间。
+
+###  应用实例
+
+案例1:2天后的下午5点执行/bin/ls /home
+
+```bash
+at 5pm + 2 days   #enter
+/bin/ls /home #俩次ctrl+D
+```
+
+案例2:atq命令来查看系统中没有执行的工作任务
+
+```bash
+atp
+```
+
+案例3:明天17点钟,输出时间到指定文件内 比如/root/date100.log
+
+```bash
+at 5pm tomorrow
+date > /root/date100.log
+```
+
+案例4:2分钟后,输出时间到指定文件内比如/root/date200.log
+
+```bash
+at now + 2minutes
+date > /root/date200.log
+```
+
+案例5:删除已经设置的任务，atrm编号
+
+```bash
+atrm 5
+```
+
