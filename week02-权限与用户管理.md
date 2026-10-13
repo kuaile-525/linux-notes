@@ -537,13 +537,17 @@ crontab  [选项]
 #####  快速入门
 
 设置任务调度文件:     /etc/crontab
-设置个人任务调度。执行  crontab-e  命令。
+设置个人任务调度。执行  crontab  -e  命令。（首次打开会选择编辑器1：nano 2：vim等）
 接着输入任务到调度文件
-·如 :* /1 *  *  *  * Is-l /etc/ > /tmp/to.txt
+·如 :* /1 *  *  *  * Is-l /etc/ > /tmp/to.txt（**5个*之间要有空格**）
 
 ​       分   时日月星期
 
-意思说每小时的每分钟执行Is-l/etc/>/tmp/to.txt命令
+每分钟执行Is-l/etc/>/tmp/to.txt命令
+
+**文件不存在时，会自动新建；但【文件所在的文件夹不存在，不会自动创建！**
+
+**tmp写错两次了不是temp**
 
 #####  参数细节说明
 
@@ -580,6 +584,8 @@ crontab-e
 0 2 *** mysqldump -u root -proot testdb > /home/db.bak
 ```
 
+![image-20261013223424366](week02-权限与用户管理.assets/image-20261013223424366.png)
+
 #### crond 相关指令
 
  conrtab -r:  终止任务调度。
@@ -588,7 +594,9 @@ crontab-e
 
 service crond restart   [重启任务调度]
 
+### 补充
 
+![image-20261013223848096](week02-权限与用户管理.assets/image-20261013223848096.png)
 
 ## at定时任务
 
@@ -731,3 +739,55 @@ w 写入并退出
 ![image-20261011223218643](week02-权限与用户管理.assets/image-20261011223218643.png)
 
 第一行是修改后的
+
+### 磁盘情况查询
+
+#####  查询系统整体磁盘使用情况
+
+```bash
+df -h
+```
+
+##### 查询指定目录的磁盘占用情况
+
+```bash
+du -h
+```
+
+查询指定目录的磁盘占用情况,默认为当前目录
+
+-s指定目录占用大小汇总
+
+-h 带计量单位
+
+-a 含文件
+
+--max-depth=1 子目录深度为1
+
+-c列出明细的同时,增加汇总值
+
+###### 应用实例
+
+查询/opt目录的磁盘占用情况,深度为1
+
+```bash
+cd /opt
+du -h --max-depth=1 /opt  #结果有opt本身
+du -hac --max-depth=1 /opt  #常用
+```
+
+##### 工作实用指令
+
+```bash
+#统计/opt文件夹下文件的个数
+ls -l /opt | grep "^-" | wc -l
+#统计/opt文件夹下目录的个数
+ls -l/opt | grep "^d" | wc -l
+#统计/opt文件夹下文件的个数,包括子文件夹里的
+ls -lR /opt | grep "^-" | wc -l
+#统计/opt文件夹下目录的个数,包括子文件夹里的
+ls -lR /opt | grep "^d" | wc -l
+#以树状显示目录结构 tree目录,注意,如果没有tree,则使用yum install tree安装
+tree /home/
+```
+
