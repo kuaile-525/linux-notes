@@ -1,5 +1,11 @@
 
 
+# Week02 权限与用户管理
+
+> 我读韩顺平 Linux 课程第 2 周的笔记。
+> 从单用户操作进入到多用户、权限、磁盘管理——是任何 Linux 运维/安全岗的硬基础。
+> 这一周展示的是：**能管多用户系统、配权限、部署定时任务、做磁盘挂载**。
+
 ## 查找指令
 
 #### find
@@ -57,11 +63,20 @@ grep [选项]  查找内容  源文件
 ##### 应用实例
 
 ```bash
-cat -n /home/hello.txt | grep "yes" #案例1:请在hello.txt文件中,查找“yes"所在行,并且显示行号     （问题：自己写的时候无文件路径）
+cat -n /home/hello.txt | grep "yes"
+#案例1:请在hello.txt文件中,查找“yes"所在行,并且显示行号     （问题：自己写的时候无文件路径）
 grep -n "yes" /home/hello.java  #法二
 ```
 
 ![image-20260927160934137](week02-权限与用户管理.assets/image-20260927160934137.png)
+
+#### 三个查找指令对比
+
+| 指令 | 搜什么 | 工作方式 | 适用场景 |
+| --- | --- | --- | --- |
+| `find` | 文件/目录的属性（名、拥有者、大小、权限） | 实时遍历磁盘 | 精确查文件，按多条件过滤 |
+| `locate` | 文件路径 | 查 `/var/lib/mlocate` 数据库 | 知道文件名想找位置，快但需 `updatedb` |
+| `grep` | 文件内容 | 文本匹配 | 在文件里找关键字，常和 `\|` 联用 |
 
 ## 压缩和解压
 
@@ -71,7 +86,7 @@ gzip 用于压缩文件,gunzip用于解压的
 
 ##### 基本语法
 
-gzip 文件      (功能描述:压缩文件,只能将文件压缩为 *- gz文件)
+gzip 文件      (功能描述:压缩文件,只能将文件压缩为 *.gz文件)
 gunzip 文件·gz         (功能描述:解压缩文件命令)
 
 ##### 应用实例
@@ -149,6 +164,14 @@ tar -zxvf pc.tar.gz
 ```
 
 
+
+#### 三种压缩对比
+
+| 指令 | 压缩对象 | 产物后缀 | 典型用途 |
+| --- | --- | --- | --- |
+| `gzip/gunzip` | 单个文件 | `.gz` | 压单个大文件，源文件会消失 |
+| `zip/unzip` | 文件或目录（`-r` 递归） | `.zip` | 跨平台打包（Windows 也能解） |
+| `tar` | 文件或目录 | `.tar.gz` / `.tgz` | Linux 项目打包发布，最常用 |
 
 ## Linux组基本介绍
 
@@ -528,7 +551,7 @@ crontab  [选项]
 
 ##### 常用选项
 
--e  编辑crontab定时任务
+-e  编辑crontab定时任务   修改后不用重启
 
 -l   查询crontab任务
 
@@ -573,12 +596,13 @@ crontab  [选项]
 */1 * * * * date >> /tmp/mydate
 #案例2:每隔1分钟,将当前日期和日历都追加到/home/mycal文件中
 #步骤:
-#(1)vim/home/my.sh 写入内容 
-date > >/home/mycal        cal> >/home/mycal
+#(1)vim /home/my.sh 写入内容   #不升为root的话： /home/shiyi/my.sh
+date >>/home/mycal        cal >>/home/mycal
+date >> /home/shiyi/my.sh   cal >> /home/shiyi/my.sh
 #(2)给my.sh 增加执行权限，
-chmod u+x /home/my.sh
+chmod u+x /home/my.sh   #同上
 #(3)
-crontab-e    */1**** /home/my.sh
+crontab -e    */1**** /home/my.sh    #同上
 #案例3:每天凌晨2:00将mysql数据库testdb,备份到文件中。提示:指令为mysqldump-u root-p密码 数据库> >/home/db.bak
 crontab-e
 0 2 *** mysqldump -u root -proot testdb > /home/db.bak
@@ -592,7 +616,40 @@ crontab-e
 
  crontab -l:  列出当前有哪些任务调度
 
-service crond restart   [重启任务调度]
+service crond restart   [重启任务调度]**这是centos，不是debian类（kali和ubuntu）**
+
+Debian类
+
+```bash
+sudo systemctl restart cron
+sudo service cron restart
+#全套常用
+# 查看cron运行状态（看有没有正常跑）
+sudo systemctl status cron
+# 启动
+sudo systemctl start cron
+# 停止
+sudo systemctl stop cron
+# 重载配置（温和，不杀进程，一般不用）
+sudo systemctl reload cron
+# 设置开机自启
+sudo systemctl enable cron
+```
+
+#### 重启条件
+
+1. cron 进程卡死、挂了，不执行任务（最常见场景）
+
+2. 修改了系统级 cron 主配置文件 `/etc/crontab`（极少用）
+
+> ⚠️ 区分：
+>
+> - `crontab -e` 用户任务：保存自动生效，**不用重启**
+> - `/etc/crontab` 系统全局任务：部分老版本 cron 不会自动检测，改完需要重启 cron 加载
+
+3. 排查故障，调试测试
+
+排错的时候，人为重启服务，确认 cron 启动时有没有报加载错误，看日志。
 
 ### 补充
 
@@ -606,12 +663,12 @@ service crond restart   [重启任务调度]
 
 ### 基本介绍
 
-1. at命令是一次性定时计划任务,at的守护进程atd会以后台模式运行,检查作业队列来运行。
+1. at命令是**一次性**定时计划任务,at的守护进程atd会以后台模式运行,检查作业队列来运行。
 2. 默认情况下,atd守护进程每60秒检查作业队列,有作业时,会检查作业运行时间,如果时间与当前时间匹配,则运行此作业。
 3. at命令是一次性定时计划任务,执行完一个任务后不再执行此任务了
 4. 在使用at命令的时候,一定要保证atd进程的启动,可以使用相关指令来查看
 
-​     ps -ef (检测正在运行的进程有哪些)
+​     ps -ef (检测正在运行的进程有哪些)          ps -ef | grep atd  (检测atd是否运行)
 
 ### at命令格式
 
@@ -632,10 +689,10 @@ at指定时间的方法:
 定时间。
 3. 采用12小时计时制,即在时间后面加上AM(上午)或PM(下午)来说明是上午还是下午。例如:12pm
 4. 指定命令执行的具体日期,指定格式为month day(月日)或mm/dd/yy(月/日/年)或dd.mm.yy
-(日.月.年),指定的日期必须跟在指定时间的后面。例如:04:00 2021-03-1（小的实践在大的日期前面）
+(日.月.年),指定的日期必须跟在指定时间的后面。例如:04:00 2021-03-1（小的时间在大的日期前面）
 5. 使用相对计时法。指定格式为:now+count time-units,now就是当前时间,time-units是时间单位,
 这里能够是minutes(分钟)、hours(小时)、days(天)、weeks(星期)。count是时间的数量,
-几天,几小时。例如:now+5 minutes
+几天,几小时。例如:now + 5 minutes
 6. 直接使用today(今天)、tomorrow(明天)来指定完成命令的时间。
 
 ###  应用实例
@@ -650,7 +707,7 @@ at 5pm + 2 days   #enter
 案例2:atq命令来查看系统中没有执行的工作任务
 
 ```bash
-atp
+atq   #不是atp
 ```
 
 案例3:明天17点钟,输出时间到指定文件内 比如/root/date100.log
@@ -662,8 +719,12 @@ date > /root/date100.log
 
 案例4:2分钟后,输出时间到指定文件内比如/root/date200.log
 
+#root得有权限才能写入，在普通用户是执行不成功的
+
+#执行完毕atq看不到了，只能cat /root/date200.log 检验
+
 ```bash
-at now + 2minutes
+at now + 2 minutes
 date > /root/date200.log
 ```
 
@@ -672,6 +733,13 @@ date > /root/date200.log
 ```bash
 atrm 5
 ```
+
+#### 周期任务 vs 一次性任务
+
+| 工具 | 任务类型 | 守护进程 | 重启策略 | 典型场景 |
+| --- | --- | --- | --- | --- |
+| `crontab` | 周期性 | `cron` | 修改保存自动生效 | 每天凌晨 2 点备份、每 5 分钟监控 |
+| `at` | 一次性 | `atd`（默认 60s 检查队列） | 跑完即删除 | "明天下午 5 点执行一次" |
 
 ## 磁盘
 
@@ -711,6 +779,9 @@ atrm 5
 ###### 虚拟机增加硬盘
 
 - 步骤1：设置-硬盘-添加-重启
+
+![image-20261014213749234](week02-权限与用户管理.assets/image-20261014213749234.png)
+
 - 步骤2：分区
 
 分区命令 fdisk /dev/sdb
@@ -722,6 +793,8 @@ n 新增分区
 d 删除分区
 w 写入并退出
 说明:开始分区后输入n,新增分区,然后选择p,分区类型为主分区。两次回车默认剩余全部空间。**最后输入w写入分区并退出,若不保存退出输入q。**
+
+![image-20261014214010028](week02-权限与用户管理.assets/image-20261014214010028.png)
 
 - 步骤3：格式化磁盘
   分区命令:mkfs -t ext4  /dev/sdb1         #其中ext4是分区类型
@@ -739,6 +812,41 @@ w 写入并退出
 ![image-20261011223218643](week02-权限与用户管理.assets/image-20261011223218643.png)
 
 第一行是修改后的
+
+###### 完整操作步骤（按顺序来）
+
+![image-20261014214601301](week02-权限与用户管理.assets/image-20261014214601301.png)
+
+```bash
+# 1. 创建挂载目录（必须先建！）
+mkdir /newdisk
+
+# 2. 查看/dev/sdb1的UUID，复制出来
+blkid /dev/sdb1
+```
+
+拿到类似 `UUID="12ae1cc1-09e0-42ce-b659-063df3e7c941"`
+
+UUID="dedd2113-5945-4336-9615-c60eb5651b09" 
+
+```bash
+#3. 编辑fstab
+vim /etc/fstab   #sudo ,不然没权限
+```
+
+在文件末尾新增一行：
+
+```bash
+UUID=这里粘贴你的UUID    /newdisk    ext4    defaults    0    0
+#4. 最重要！测试fstab配置有没有写错！
+mount -a
+```
+
+👉 如果`mount -a`**没有任何报错**，代表配置没问题，重启自动挂载。 👉 如果报错，**千万别重启机器！** 改对文件再测试，否则开机进不了系统！
+
+![image-20261014215908736](week02-权限与用户管理.assets/image-20261014215908736.png)
+
+uuid上面那行不是磁盘挂载
 
 ### 磁盘情况查询
 
@@ -766,6 +874,8 @@ du -h
 
 -c列出明细的同时,增加汇总值
 
+![image-20261014221708941](week02-权限与用户管理.assets/image-20261014221708941.png)
+
 ###### 应用实例
 
 查询/opt目录的磁盘占用情况,深度为1
@@ -787,7 +897,23 @@ ls -l/opt | grep "^d" | wc -l
 ls -lR /opt | grep "^-" | wc -l
 #统计/opt文件夹下目录的个数,包括子文件夹里的
 ls -lR /opt | grep "^d" | wc -l
-#以树状显示目录结构 tree目录,注意,如果没有tree,则使用yum install tree安装
+#以树状显示目录结构 tree目录,注意,如果没有tree,则使用yum install tree（这是centos的）安装
+#应该是apt install tree
 tree /home/
 ```
+
+---
+
+## 三件事总结
+
+1. **查找与管道**：用 `find` 按名/拥有者/大小查文件，用 `grep -n` 过滤文本，`|` 把前一个命令的输出传给后一个
+2. **用户与权限**：`useradd/groupadd` 建用户和组，`chown/chgrp` 改所属，`chmod` 配 rwx（数字法 r=4 w=2 x=1）
+3. **磁盘与定时任务**：`fdisk` 分区→`mkfs` 格式化→`mount` 临时挂载→`/etc/fstab`+UUID 永久挂载；`crontab -e` 周期任务，`at` 一次性任务
+
+## 学完能干什么
+
+- 维护一台多用户 Linux 服务器（建账号、配组、改所属、限权限）
+- 做权限审计（看 `ls -l` 知道每个文件谁能读/写/执行、能进哪个目录）
+- 部署日常 cron 任务（备份、清理、监控），用 `at` 排一次性运维动作
+- 给服务器加硬盘：分区、格式化、临时挂载、配置永久挂载（5 步流程可演示）
 
