@@ -196,6 +196,86 @@ ubuntu分屏
 
 .........
 
+### pstree指令
+
+查看进程树
+
+pstree[选项],可以更加直观的来看进程信息
+
+##### 常用选项
+
+-p:显示进程的PID
+-u:显示进程的所属用户
+
+### 服务管理
+
+![image-20261020212918025](week03-网络与进程服务管理.assets/image-20261020212918025.png)
+
+##### 介绍
+
+服务(service)本质就是进程,但是是运行在后台的,通常都会监听某个端口,等待其它程序的请求,比
+如(mysqld,sshd 防火墙等),因此我们又称为守护进程,是Linux中非常重要的知识点。【原理图】
+
+##### service管理指令
+
+1. service BR [start | stop | restart | reload | status]
+2. 在CentOS7.0后 很多服务不再使用service,而是systemctl(后面专门讲)
+3. service指令管理的服务在/etc/init.d 查看
+
+![image-20261020213844586](week03-网络与进程服务管理.assets/image-20261020213844586.png)
+
+#####  service管理指令案例
+
+请使用service指令,查看,关闭,启动network[注意:在虚拟系统演示,因为网络连接会关闭]
+
+```bash
+service network status #是centos，ubuntu是netplan
+# 查看网络服务状态
+systemctl status systemd-networkd
+# 关闭
+sudo systemctl stop systemd-networkd
+# 启动
+sudo systemctl start systemd-networkd
+# 重启网络（推荐）
+sudo netplan apply
+
+#在ubuntu黑框里试即可
+```
+
+![image-20261020214028622](week03-网络与进程服务管理.assets/image-20261020214028622.png)
+
+##### 查看服务名:
+
+方式1:使用setup      选择系统服务 就可以看到全部，带*，随系统启动而启动。   **只是centos，ubuntu不行**   
+方式2:/etc/init.d 看到service指令管理的服务
+
+#####  服务的运行级别(runlevel):
+
+√ Linux系统有7种运行级别(runlevel):**常用的是级别3和5**
+运行级别0:系统停机状态,系统默认运行级别不能设为0,否则不能正常启动
+运行级别1:单用户工作状态,root权限,用于系统维护,禁止远程登陆
+运行级别2:多用户状态(没有NFS),不支持网络
+**运行级别3**:完全的多用户状态(有NFS),登陆后进入控制台命令行模式
+运行级别4:系统未使用,保留
+**运行级别5**:X11控制台,登陆后进入图形GUI模式
+运行级别6:系统正常关闭并重启,默认运行级别不能设为6,否则不能正常启动
+
+![image-20261020215520019](week03-网络与进程服务管理.assets/image-20261020215520019.png)
+
+```bash
+● Debian systemd 运行级别说明
+systemd 不再依靠 /etc/inittab 配置，改用 target：
+multi-user.target: analogous to runlevel 2
+graphical.target: analogous to runlevel 5
+
+# To view current default target, run:
+systemctl get-default
+
+# To set a default target, run:
+systemctl set-default TARGET.target
+```
+
 ## 软件包管理
 
  
+
