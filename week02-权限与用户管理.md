@@ -1,919 +1,696 @@
+# week02 权限与用户管理
 
+> **我的环境**：Ubuntu Server（VMware 虚拟机，NAT 模式，IP `192.168.174.128`）
+> 另一台：Kali（VMware，同为 Debian 家族，命令通用）
+> 发行版/内核：Ubuntu 22.04.5 LTS / 5.15.0-198-generic
+>
+> **关于教程**：主教程为 CentOS 7 环境（韩顺平）。
+> 因此本笔记**正文只保留我在 Ubuntu 上亲手执行过的命令**，
+> CentOS 内容一律降级为「对照标注」一行——这是本笔记的统一规则。
+>
+> **选记原则**：命令我都在本机跑过，但**纯查询类、输出一眼看明白的不贴输出**——
+> 笔记记的是"我理解了什么"，不是终端日志。
+>
+> 文中配图均为本人学习过程中自己截的图（含自己敲命令的终端输出）。
 
-# Week02 权限与用户管理
+## 目录
 
-> 我读韩顺平 Linux 课程第 2 周的笔记。
-> 从单用户操作进入到多用户、权限、磁盘管理——是任何 Linux 运维/安全岗的硬基础。
-> 这一周展示的是：**能管多用户系统、配权限、部署定时任务、做磁盘挂载**。
+- [1. 查找指令：find / locate / grep](#1-查找指令find--locate--grep)
+- [2. 压缩与解压：gzip / zip / tar](#2-压缩与解压gzip--zip--tar)
+- [3. 用户与组](#3-用户与组)
+- [4. 权限：rwx 与数字法](#4-权限rwx-与数字法)
+- [5. 改权限与归属：chmod / chown / chgrp](#5-改权限与归属chmod--chown--chgrp)
+- [6. sudo 与用户认证文件](#6-sudo-与用户认证文件)
+- [7. 特殊权限：SUID / SGID / Sticky](#7-特殊权限suid--sgid--sticky)
+- [8. 实战：多用户协作与权限](#8-实战多用户协作与权限)
+- [9. 周期任务：crontab](#9-周期任务crontab)
+- [10. 一次性任务：at](#10-一次性任务at)
+- [11. 磁盘分区与挂载](#11-磁盘分区与挂载)
+- [12. 磁盘使用查询：df / du](#12-磁盘使用查询df--du)
 
-## 查找指令
+---
 
-#### find
+## 1. 查找指令：find / locate / grep
 
-![image-20260927152728045](week02-权限与用户管理.assets/image-20260927152728045.png)
+### 1.1 find —— 按属性实时查找
 
-##### 应用实例
-
-```bash
-#案例1:按文件名:根据名称查找/home目录下的hello.txt文件
-find /home -name hello.txt
-#案例2:按拥有者:查找/opt目录下,用户名称为nobody的文件
-find /opt -user nobody
-#案例3:查找整个linux系统下大于200M的文件(+n大于-n小于 n等于,单位有k,M,G)
-find / -size +200M
-```
-
-**找不到的文件不会显示**
-
-#### locate
-
-locate指令可以快速定位文件路径。locate指令利用事先建立的系统中所有文件名称及路径的locate数据库实现快速定位给定的文件。Locate指令无需遍历整个文件系统,查询速度较快。为了保证查询结果
-的准确度,管理员必须定期更新locate时刻
-
-##### 基本语法
-
-locate 搜索文件
-
-##### 特别说明
-
-由于locate指令基于数据库进行查询,所以第一次运行前,必须使用updatedb指令创建locate数据库。
-
-##### 应用实例
+![find](week02-权限与用户管理.assets/image-20260927152728045.png)
 
 ```bash
-updatedb
-locate hello.java#案例1:请使用locate指令快速定位 hello.txt 文件所在目录
-#which可以查看某个指令在哪个目录下  which ls
+find /home -name hello.txt      # 按文件名
+find /opt  -user nobody         # 按拥有者
+find /     -size +200M          # 按大小（+n 大于 / -n 小于 / n 等于，单位 k M G）
+find /etc -type f -mtime -1     # 按类型 + 修改时间（1 天内改过的普通文件）
 ```
 
-#### grep和管道符号 |
+> **找不到就不输出**，find 不报错、静默退出——第一次用容易以为命令坏了。
 
-grep过滤查找    ,管道符,   |     ,表示将前一个命令的处理结果输出传递给后面的命令处理。
+### 1.2 locate —— 查数据库，快但不实时
 
-##### 基本语法
-
-grep [选项]  查找内容  源文件
-
-##### 常用选项
-
--n     显示匹配行及行号。
-
--i       忽略字母大小写
-
-##### 应用实例
+`locate` 不遍历磁盘，它查的是事先建好的文件路径数据库（`/var/lib/mlocate`），所以**快，但新建的文件查不到**。
 
 ```bash
-cat -n /home/hello.txt | grep "yes"
-#案例1:请在hello.txt文件中,查找“yes"所在行,并且显示行号     （问题：自己写的时候无文件路径）
-grep -n "yes" /home/hello.java  #法二
+sudo updatedb          # 第一次用之前必须建库；之后新建的文件也要 update 才查得到
+locate hello.txt
+which ls              # 顺带：which 查"命令本身"在哪个目录
 ```
 
-![image-20260927160934137](week02-权限与用户管理.assets/image-20260927160934137.png)
+### 1.3 grep 与管道 `|`
 
-#### 三个查找指令对比
+管道 = 把前一个命令的输出，交给后一个命令处理。
+
+```bash
+grep -n "yes" /home/hello.txt        # -n 显示行号，-i 忽略大小写
+cat -n /home/hello.txt | grep "yes"  # 等价写法：先编号再过滤
+```
+
+![grep](week02-权限与用户管理.assets/image-20260927160934137.png)
+
+### 三个查找指令对比
 
 | 指令 | 搜什么 | 工作方式 | 适用场景 |
-| --- | --- | --- | --- |
-| `find` | 文件/目录的属性（名、拥有者、大小、权限） | 实时遍历磁盘 | 精确查文件，按多条件过滤 |
-| `locate` | 文件路径 | 查 `/var/lib/mlocate` 数据库 | 知道文件名想找位置，快但需 `updatedb` |
-| `grep` | 文件内容 | 文本匹配 | 在文件里找关键字，常和 `\|` 联用 |
+|---|---|---|---|
+| `find` | 文件/目录的**属性**（名、拥有者、大小、权限） | 实时遍历磁盘 | 精确查文件、按多条件过滤 |
+| `locate` | 文件路径 | 查 `/var/lib/mlocate` 数据库 | 知道名字找位置，快，但要先 `updatedb` |
+| `grep` | 文件**内容** | 文本匹配 | 在文件里找关键字，常和 `\|` 联用 |
 
-## 压缩和解压
+**面试能讲的一句**
 
-#### gzip/gunzip 指令
+> 找文件用 find（实时、可按属性过滤），找路径用 locate（查库，快），找内容用 grep。
+> 三者的区别在于**搜的对象不同**——属性、路径、内容。
 
-gzip 用于压缩文件,gunzip用于解压的
+---
 
-##### 基本语法
+## 2. 压缩与解压：gzip / zip / tar
 
-gzip 文件      (功能描述:压缩文件,只能将文件压缩为 *.gz文件)
-gunzip 文件·gz         (功能描述:解压缩文件命令)
-
-##### 应用实例
+### 2.1 gzip / gunzip —— 压单个文件
 
 ```bash
-#案例1:gzip压缩,将/home下的hello.txt文件进行压缩
-gzip /home/hello.txt
-#案例2:gunzip解压缩,将/home下的hello.txt.gz文件进行解压缩
-gunzip /home/hello.txt.gz
+gzip /home/hello.txt          # 压缩 → hello.txt.gz（源文件消失）
+gunzip /home/hello.txt.gz     # 解压
 ```
 
-![image-20260927215505007](week02-权限与用户管理.assets/image-20260927215505007.png)
+![gzip](week02-权限与用户管理.assets/image-20260927215505007.png)
 
-#### zip/unzip 指令
-
-zip 用于压缩文件,unzip用于解压的,这个在项目打包发布中很有用的
-
-##### 基本语法
-
-zip   [选项]   XXX.zip 将要压缩的内容  (功能描述:压缩文件和目录的命令)
-unzip  [选项]  XXX.zip   (功能描述:解压缩文件)
-
-解压和压缩都是zip
-
-##### zip常用选项
-
--r:递归压缩,即压缩目录
-
-##### unzip的常用选项
-
--d  <目录>:指定解压后文件的存放目录
-
-##### 应用实例
-
-![image-20260927224303438](week02-权限与用户管理.assets/image-20260927224303438.png)
+### 2.2 zip / unzip —— 跨平台打包
 
 ```bash
-#案例1:将/home下的 所有文件进行压缩成 myhome.zip
-zip -r myhome.zip /home/*#(*可有可无但都表示home及其下面的文件夹全部压缩)         别忘记-r
-#案例2:将myhome.zip解压到/opt/tmp 目录下
-uzip -d   /opt/tmp home/myhome.zip  
+zip -r myhome.zip /home/          # -r 递归，压目录必须加（最常忘的就是它）
+unzip -d /opt/tmp myhome.zip     # -d 指定解压到哪（目录不存在会报错，先 mkdir）
 ```
 
-![image-20260927224216356](week02-权限与用户管理.assets/image-20260927224216356.png)
+![zip实例1](week02-权限与用户管理.assets/image-20260927224303438.png)
 
-![image-20260927224240513](week02-权限与用户管理.assets/image-20260927224240513.png)
+![zip实例2](week02-权限与用户管理.assets/image-20260927224216356.png)
 
-#### tar指令
+![zip实例3](week02-权限与用户管理.assets/image-20260927224240513.png)
 
-tar 指令 是打包指令,最后打包后的文件是.tar.gz的文件。
-
-##### 基本语法
-
-tar[选项]XXX.tar.gz 打包的内容(功能描述:打包目录,压缩后的文件格式.tar.gz)
-选项说明
-
-##### 选项
-
--C    产生.tar打包文件
--v    显示详细信息
--f     指定压缩后的文件名
--z      打包同时压缩
--x      解包.tar文件
-
-##### 应用实例
+### 2.3 tar —— Linux 上最常用
 
 ```bash
-#案例1:压缩多个文件,将/home/pig.txt和/home/cat.txt 压缩成 pc.tar.gz
-tar -zcvf pc.tar.gz /home/pig.txt /home/cat.txt
-#案例2:将/home的文件夹 压缩成 myhome.tar.gz
-tar -zcvf myhome.tar.gz /home/
-#案例3:将pc.tar.gz 解压到当前目录
-tar -zxvf pc.tar.gz
-#案例4:将myhome.tar.gz 解压到/opt/tmp2目录下(1) mkdir/opt/tmp2(2)tar-zxvf/home/myhome.tar.gz-C /opt/tmp2
+tar -zcvf pc.tar.gz /home/pig.txt /home/cat.txt   # 打包并压缩多个文件
+tar -zxvf pc.tar.gz                               # 解包到当前目录
+tar -zxvf myhome.tar.gz -C /opt/tmp2              # -C 解到指定目录（目录要先 mkdir）
 ```
 
+**tar 选项**（注意大小写是两个不同的选项，最易混）：
 
+| 选项 | 含义 |
+|---|---|
+| `-c` | **create，打包**（小写） |
+| `-x` | 解包 |
+| `-z` | 打包同时用 gzip 压缩 |
+| `-v` | 显示详细过程 |
+| `-f` | 指定文件名（**必须放在最后，紧跟文件名**） |
+| `-C` | **解包时指定目标目录**（大写，和 `-c` 完全不同） |
 
-#### 三种压缩对比
+> ⚠️ 我原来把 `-C` 记成"产生 .tar 打包文件"，**是错的**——那是 `-c`。
+> `-C` 只在**解包**时用，指"解到哪个目录"。
+
+### 三种压缩对比
 
 | 指令 | 压缩对象 | 产物后缀 | 典型用途 |
-| --- | --- | --- | --- |
-| `gzip/gunzip` | 单个文件 | `.gz` | 压单个大文件，源文件会消失 |
+|---|---|---|---|
+| `gzip/gunzip` | 单个文件 | `.gz` | 压单个大文件，**源文件会消失** |
 | `zip/unzip` | 文件或目录（`-r` 递归） | `.zip` | 跨平台打包（Windows 也能解） |
-| `tar` | 文件或目录 | `.tar.gz` / `.tgz` | Linux 项目打包发布，最常用 |
+| `tar` | 文件或目录 | `.tar.gz` / `.tgz` | **Linux 项目打包发布，最常用** |
 
-## Linux组基本介绍
+**面试能讲的一句**
 
-在linux中的每个用户必须属于一个组,不能独立于组外。在linux中每个文件有所有者、所在组、其它组的概念。
+> 生产上统一用 `tar -zcvf` / `tar -zxvf`；跟 Windows 交互用 zip。
+> `-c` 打包、`-C` 指定解压目录，大小写别混。
 
-所有者，创建文件的用户
-所在组，创建文件的用户所在组
-其它组，所在组之外的组
-改变用户所在的组
+---
 
-#### 所有者
+## 3. 用户与组
 
-一般为文件的创建者,谁创建了该文件,就自然的成为该文件的所有者。
+Linux 中**每个用户必须属于一个组**；每个文件有三个归属概念：
 
-##### 查看文件的所有者
-
-指令:Is   -ahl
-
-##### 修改文件所有者
-
-指令:chown  用户名 文件名
-
-##### 应用案例
+- **所有者（user）**：一般是文件的创建者
+- **所在组（group）**：创建者所在的组
+- **其他组（others）**：除上面两类之外的所有人
 
 ```bash
-#要求:使用root创建一个文件apple.txt,然后将其所有者修改成 tom
-touch apple.txt
-chown tom apple.txt
+groupadd monster                 # 建组
+useradd -m -g monster fox       # 建用户并指定组（-m 同时建家目录，Ubuntu 上不加会没家目录）
+passwd fox                      # 设密码（不设的话，普通用户 su 切不过去）
+id fox                           # 看 uid/gid/属于哪些组
+usermod -g police xh            # 改用户的主组（-g 别漏）
+usermod -d /home/newhome xh     # 改用户登录的初始目录（用户要有进入该目录的权限）
+cat /etc/group | grep police    # 确认组在不在
 ```
 
-#### 文件/目录所在组
+> 改组之前先 `id 用户名` 看现在在哪，改完再 `id` 一次确认——这是我自己养成的两步验证。
 
-当某个用户创建了一个文件后,这个文件的所在组就是该用户所在的组。
-
-##### 查看文件/目录所在组
-
-###### 基本指令
-
-Is -ahl
-
-###### 应用实例
-
-使用fox（用户）创造文件，看看文件属于哪个组
+### 查看与修改归属
 
 ```bash
-ll
-#得到以下
--rw-r--r--. 1 fox monster 0 11月 5 12:50 ok.txt
+ls -l                    # 看所有者与所在组
+chown tom apple.txt       # 改所有者
+chgrp fruit orange.txt    # 改所在组
+chown tom:tom /home/kkk   # 一次改所有者和组
+chown -R tom:tom /home/kkk   # -R 递归：目录下所有文件都改（改目录必须加）
 ```
 
+> ⚠️ 上面这些**都需要 root 权限**，实际执行时前面加 `sudo`。
 
+**面试能讲的一句**
 
-#####  修改文件/目录所在的组
+> `chown` 改所有者、`chgrp` 改所属组、`chmod` 改权限——三个命令各管一件事。
+> 改目录一定要带 `-R`，否则只有目录本身变了、里面的文件没变。
 
-###### 基本指令
+---
 
-chgrp  组名 文件名
+## 4. 权限：rwx 与数字法
 
-######  应用实例
+![权限](week02-权限与用户管理.assets/image-20261008090342355.png)
 
-```bash
-#使用root用户创建文件 orange.txt,看看当前这个文件属于哪个组,然后将这个文件所在组,修改到fruit组.
-groupadd fruit
-touch orange.txt
-ll
-chgrp fruit orange.txt
-```
+`ls -l` 的输出：
 
-##### 回顾
-
-###### 基本指令
-
-groupadd 组名
-
-###### 应用实例
-
-```bash
-#创建一个组,monster
-groupadd monster
-#创建一个用户 fox，并放入monster组中
-useradd -g monster fox
-```
-
-#### 其他组
-
-除文件的所有者和所在组的用户外,系统的其它用户都是文件的其它组
-
-#### 改变用户所在组
-
-在添加用户时,可以指定将该用户添加到哪个组中,同样的用root的管理权限可以改变某个用户所在的组。
-
-##### · 改变用户所在组
-
-1. usermod   -g  组名 用户名
-2. usermod    -d  目录名 用户名  改变用户登陆的初始目录
-
-**用户有进入新目录的权限**
-
-##### · 应用实例
-
-```bash
-#将zwj这个用户从原来所在组,修改到wudang组。
-id zwj                      
-cat /etc/group |grep wudang   #查找在不在
-usermod -g wudang zwj
-```
-
-
-
-## 权限
-
-Is -l中显示的内容如下:
+```text
 -rwxrw-r-- 1 root root 1213 Feb 2 09:39 abc
-
-```bash
-rwx：文件所有者对文件拥有的权限 r-root  w-write  x
-rw：用户组的权限
-r：其他组的权限
+ └┬┘└┬┘└┬┘
+  │  │  └── 第 7-9 位：其他用户 others
+  │  └───── 第 4-6 位：所属组 group
+  └──────── 第 1-3 位：所有者 user
 ```
 
-#### 0-9位说明
+第 0 位是文件类型：`-` 普通文件、`d` 目录、`l` 软链接、`c` 字符设备（键盘鼠标）、`b` 块设备（硬盘）。
 
-1. 第0位确定文件类型（d,-,l,c,b）
+### rwx 作用在文件 vs 目录（**区别很大，必考**）
 
-​       l是链接,相当于windows的快捷方式
+| 权限 | 作用在**文件** | 作用在**目录** |
+|---|---|---|
+| `r` | 可以读取内容 | 可以 `ls` 列出目录内容 |
+| `w` | 可以修改内容（**不代表能删除该文件**） | 可以在目录内**创建 / 删除 / 重命名** |
+| `x` | 可以执行 | 可以 `cd` **进入**该目录 |
 
-​       d是目录,相当于windows的文件夹
+> ⚠️ **删除一个文件的前提，是对它所在的目录有 `w` 权限**，跟文件本身的权限无关。
+> 这是最容易答错的权限题。
 
-​      c是字符设备文件,鼠标,键盘
+### 数字法
 
-​       b是块设备,比如硬盘
-
-​       -是普通文件
-
-2. 第1-3位确定所有者(该文件的所有者)拥有该文件的权限。 --- User
-3. 第4-6位确定所属组(同用户组的)拥有该文件的权限, --- Group
-4. 第7-9位确定其他用户拥有该文件的权限 --- Other
-
-#### rwx权限详解
-
-●rwx作用到文件
-
-1. [r]代表可读(read):可以读取,查看
-2. [w]代表可写(write):可以修改,但是不代表可以删除该文件,删除一个文件的前提条件是对该文件所在的目录有写权限,才能删除该文件.
-3. [x]代表可执行(execute):可以被执行
-
-●rwx作用到目录
-
-  1.[r]代表可读(read):可以读取,Is查看目录内容
-
-  2.[w]代表可写(write):可以修改,对目录内创建+删除+重命名目录
-
-  3.[x]代表可执行(execute):可以进入该目录
-
-#### 文件及目录权限实际案例
-
-●ls -l 中显示的内容如下:
--rwxrw-r -- 1 root root 1213 Feb 2 09:39 abc
-
-![image-20261008090342355](week02-权限与用户管理.assets/image-20261008090342355.png)
-
-#####  10个字符确定不同用户能对文件干什么
-
-第一个字符代表文件类型 :-  I d c b
-其余字符每3个一组(rwx)读(r)写(w)执行(x)
-第一组rwx:文件拥有者的权限是读、写和执行
-第二组rw -: 与文件拥有者同一组的用户的权限是读、写但不能执行
-第三组r --: 不与文件拥有者同组的其他用户的权限是读不能写和执行
-
- 可用数字表示为:r=4,w=2,x=1因此rwx=4+2+1=7
-
-##### 其它说明
-
-1                           文件：硬连接数或 目录：子目录数
-
-root                      用户
-
-root                      组
-
-1213                     文件大小（字节），（文件夹显示4096字节）
-
-Feb 2 09：39       最后修改日期
-
-abc                         文件名
-
-#### 修改权限-chmod
-
-##### 第一种 + - =变更权限
-
-u：所有者  g：所在组  o：其他人 a：所有人（u,g,o总和）
-
-1）chmod   u=rwx,g=rx,o=x   文件/目录名
-
-2）chmod   o+w   文件/目录名
-
-3）chmod   a-x      文件/目录名
-
-###### 案例演示
+`r=4  w=2  x=1`，三位相加：`rwx=7`、`r-x=5`、`rw-=6`。
 
 ```bash
-#1)给abc文件 的所有者读写执行的权限,给所在组读执行权限,给其它组读执行权限。
-chmod u=rwx,g=rx,o=rx  abc #别忘了文件名/目录名啊
-#2)给abc文件的所有者除去执行的权限,增加组写的权限
-chmod u-x,g+w  abc
-#3)给abc文件的所有用户添加读的权限
-chmod  a+r   abc
+chmod 755 /home/abc.txt    # rwxr-xr-x
+chmod 640 jack.txt         # rw-r-----（所有者读写、同组只读、其他无权限）
 ```
 
-（绿色：可执行，蓝色：目录 ，红色：压缩文件）
-
-##### 第二种 数字变更权限
-
-r=4 w=2 x=1       （1-7分别代表不同的组合）
-
-chmod u=rwx,g=rx,o=x 文件目录名  相当于 chmod 751 文件目录名
-
-######  案例演示
+### umask：新建文件为什么是 644？
 
 ```bash
-要求:将/home/abc.txt 文件的权限修改成 rwxr-xr-x,使用给数字的方式实现:
-chmod 755 /home/abc.txt
-#rwx=4+2+1=7  r-x=1+4=5
+umask          # 我的机器输出 0022
 ```
 
-#### 修改文件所有者chown
+- 文件默认满权限 666，目录 777
+- 实际权限 = 满权限 − umask
+- `umask 022` → 文件 `644`、目录 `755`
 
-chown newowner 文件/目录                                     改变所有者
-chown newowner:newgroup 文件/目录                 改变所有者和所在组
-**-R 如果是目录 则使其下所有子文件或目录递归生效**
+> 想让新建文件对同组可写，改 umask 或 `chmod g+w`；**不建议把 umask 改成 000**，等于默认对所有人都开放。
 
-######  案例演示
+---
+
+## 5. 改权限与归属：chmod / chown / chgrp
+
+### 符号法：`u` / `g` / `o` / `a`
+
+`u` 所有者、`g` 所在组、`o` 其他人、`a` 全部（ugo 三者）。
 
 ```bash
-#请将/home/abc.txt 文件的所有者修改成tom
-chown tom /home/abc.txt
-#请将/home/kkk 目录下所有的文件和目录的所有者都修改成tom
-chown -R tom:tom /home/kkk      #(注意目录要  -R  )
+chmod u=rwx,g=rx,o=rx abc
+chmod u-x,g+w abc
+chmod a+r abc
 ```
 
-#### 修改文件/目录所在组-chgrp
+> ⚠️ **`=` 是赋值覆盖，不是追加**。`chmod a=r abc` 会把 ugo 三组**全部**设为只读，
+> 即使原来有 `w` 也会被抹掉。我在这上面吃过亏（当时以为只是"加一个读权限"）。
 
-chgrp newgroup 文件/目录                       改变所在组
-
-###### 案例演示
-
-```bash
-#请将/home/abc.txt  文件的所在组修改成shaolin(少林)
-chgrp shaolin /home/abc.txt
-#请将/home/kkk 目录下所有的文件和目录的所在组都修改成shaolin(少林)
-chgrp -R shaolin /home/kkk
-```
-
-### 实践
-
-#### 土匪与警察
-
-police , bandit
-jack, jerry:警察
-xh,xq:土匪
-
-1. 创建组 groupadd police;groupadd banidit
-
-2. 创建用户（**要设置密码的，不设，普通用户无法切换到它**）
-    useradd -m -g police jack ; useradd -m -g police jerry
-    useradd -m -g bandit xh; useradd -m -g bandit xq
-
-3. jack创建一个文件,自己可以读r写w,本组人可以读,其它组没人任何权限
-    首先jack登录  ; 
-
-  **cd /home/jack里创建jack.txt与登陆进去jack创建文件是不一样的，这个首先错了**
-
-   vim jack.txt                    chmod 640 jack.txt
-
-4. jack修改该文件,让其它组人可以读,本组人可以读写
-    chmod g=rw,o=r  jack.txt
-
-  ![image-20261008154709009](week02-权限与用户管理.assets/image-20261008154709009.png)
-
-   **u是所有者，o是其他组；后面覆盖前面，所以a=r使ugo都只读了**
-
-  （在root，❌）
-
-5. xh 投靠 警察,看看是否可以读写.
-    usermod -g police xh（回root）
-
-6. 测试,看看xh是否可以读写,xq是否可以,小结论,就是如果要对目录内的文件进行操作,需要有对该目录的相应权限
-
-![image-20261008155839417](week02-权限与用户管理.assets/image-20261008155839417.png)
-
-xq无法访问，xh可以读写（在root创建的，❌）
-
-![image-20261008160932244](week02-权限与用户管理.assets/image-20261008160932244.png)
-
-✔
-
-为什么xq访问不进去
-
-![image-20261008161100731](week02-权限与用户管理.assets/image-20261008161100731.png)
-
-##### 注意
-
-1.cd /home/jack  跟登录jack创建文件不同，用户和组别分别是 root  root  与  jack  police
-
-2.xh@ubuntu:jack$         xh：用户    jack：目录
-
-#### 西游记
-
-1. 建立两个组(神仙(sx),妖怪(yg))
-2. 建立四个用户(唐僧,悟空,八戒,沙僧)
-3. 设置密码
-4. 把悟空,八戒放入妖怪 唐僧 沙僧 在神仙
-
-5. 用悟空建立一个文件(monkey.java 该文件要输出i am monkey)
-6. 给八戒一个可以rw的权限
-7. 八戒修改monkey.java 加入一句话(i am pig)
-
-8. 唐僧 沙僧 对该文件没有权限
-9. 把沙僧 放入妖怪组
-10. 让沙僧 修改 该文件monkey,加入一句话(“我是沙僧,我是妖怪!”);
+### 数字法
 
 ```bash
-root:groupadd sx      groupadd yg
-     useradd -m  ts/ss/wk/bj
-     passwd ts / wk / bj /ss
-     usermod -g sx ts/ss
-     usermod -g yg wk/bj
-su - wk
-wk: vim monkey.java    monkey.java: i am a monkey
-    ls -l
-    chmod  g=rw/g+w monkey.java
-    chmod  g+r+w+x  /home/wk #新增，给八戒加进入文件夹权限
-bj: cd /home/wk    #(ls -l)
-    vim monkey.java  
-#chmod 8.无操作
-root:usermod -g yg ss  #自己写忘了-g
-ss:cd /home/monkey.java     vim monkey.java  
-```
-
-11.对文件夹rwx的细节讨论和测试
-
-x:表示可以进入到该目录,比如cd
-r:表示可以Is,将目录的内容显示
-w:表示可以在该目录,删除或者创建文件
-
-
-
-![image-20261008184802454](week02-权限与用户管理.assets/image-20261008184802454.png)
-
-### ubuntu纯命令行开多个终端
-
-1.ctrl +alt+F1    ctrl +alt+F2（tty2）    ctrl +alt+F3（tty3）
-
-2.tmux（同一个屏幕中分屏，常用来进行测试）
-
-- 安装：sudo apt install tmux
-- 输入tmux进入tmux环境
-
-![image-20261008182047024](week02-权限与用户管理.assets/image-20261008182047024.png)
-
-## crond任务调度
-
-crontab 进行 定时任务的设置
-
-### 快速入门
-
-![image-20261008215340645](week02-权限与用户管理.assets/image-20261008215340645.png)
-
-##### 概述
-
-任务调度:是指系统在某个时间执行的特定的命令或程序。
-任务调度分类:1.系统工作:有些重要的工作必须周而复始地执行。如病毒扫描等
-个别用户工作:个别用户可能希望执行某些程序,比如对mysql数据库的备份。
-
-##### 基本语法
-
-crontab  [选项]
-
-##### 常用选项
-
--e  编辑crontab定时任务   修改后不用重启
-
--l   查询crontab任务
-
--r  删除当前用户所有的crontab任务
-
-#####  快速入门
-
-设置任务调度文件:     /etc/crontab
-设置个人任务调度。执行  crontab  -e  命令。（首次打开会选择编辑器1：nano 2：vim等）
-接着输入任务到调度文件
-·如 :* /1 *  *  *  * Is-l /etc/ > /tmp/to.txt（**5个*之间要有空格**）
-
-​       分   时日月星期
-
-每分钟执行Is-l/etc/>/tmp/to.txt命令
-
-**文件不存在时，会自动新建；但【文件所在的文件夹不存在，不会自动创建！**
-
-**tmp写错两次了不是temp**
-
-#####  参数细节说明
-
-![image-20261008214902643](week02-权限与用户管理.assets/image-20261008214902643.png)
-
-### 时间规则
-
-| 特殊符号 | 含义                                                         |
-| -------- | :----------------------------------------------------------- |
-| *        | 代表任何时间,比如第一个“*”就代表一小时中每分钟都执行一次的意思。 |
-| ‘        | 代表不连续的时间,比如“08,12,16 *** 命令”,就代表在每天的8点0分,12点0分,16点0分都执行一次命令 |
-| -        | 代表连续的时间范围,比如“05 ** 1-6命令”,代表在周一到周六的凌晨5点0分执行命令 |
-| */n      | 代表每隔多久执行一次,比如“*/10 * * * *命令“代表每隔10分钟执行一次 |
-
-#### 注意
-
-星期几和几号最好不要同时出现                    
-
-### 应用实例
-
-```bash
-#案例1:每隔1分钟,就将当前的日期信息,追加到/tmp/mydate文件中
-*/1 * * * * date >> /tmp/mydate
-#案例2:每隔1分钟,将当前日期和日历都追加到/home/mycal文件中
-#步骤:
-#(1)vim /home/my.sh 写入内容   #不升为root的话： /home/shiyi/my.sh
-date >>/home/mycal        cal >>/home/mycal
-date >> /home/shiyi/my.sh   cal >> /home/shiyi/my.sh
-#(2)给my.sh 增加执行权限，
-chmod u+x /home/my.sh   #同上
-#(3)
-crontab -e    */1**** /home/my.sh    #同上
-#案例3:每天凌晨2:00将mysql数据库testdb,备份到文件中。提示:指令为mysqldump-u root-p密码 数据库> >/home/db.bak
-crontab-e
-0 2 *** mysqldump -u root -proot testdb > /home/db.bak
-```
-
-![image-20261013223424366](week02-权限与用户管理.assets/image-20261013223424366.png)
-
-#### crond 相关指令
-
- conrtab -r:  终止任务调度。
-
- crontab -l:  列出当前有哪些任务调度
-
-service crond restart   [重启任务调度]**这是centos，不是debian类（kali和ubuntu）**
-
-Debian类
-
-```bash
-sudo systemctl restart cron
-sudo service cron restart
-#全套常用
-# 查看cron运行状态（看有没有正常跑）
-sudo systemctl status cron
-# 启动
-sudo systemctl start cron
-# 停止
-sudo systemctl stop cron
-# 重载配置（温和，不杀进程，一般不用）
-sudo systemctl reload cron
-# 设置开机自启
-sudo systemctl enable cron
-```
-
-#### 重启条件
-
-1. cron 进程卡死、挂了，不执行任务（最常见场景）
-
-2. 修改了系统级 cron 主配置文件 `/etc/crontab`（极少用）
-
-> ⚠️ 区分：
->
-> - `crontab -e` 用户任务：保存自动生效，**不用重启**
-> - `/etc/crontab` 系统全局任务：部分老版本 cron 不会自动检测，改完需要重启 cron 加载
-
-3. 排查故障，调试测试
-
-排错的时候，人为重启服务，确认 cron 启动时有没有报加载错误，看日志。
-
-### 补充
-
-![image-20261013223848096](week02-权限与用户管理.assets/image-20261013223848096.png)
-
-## at定时任务
-
-![image-20261010221912155](week02-权限与用户管理.assets/image-20261010221912155.png)
-
-(执行完毕会清除)
-
-### 基本介绍
-
-1. at命令是**一次性**定时计划任务,at的守护进程atd会以后台模式运行,检查作业队列来运行。
-2. 默认情况下,atd守护进程每60秒检查作业队列,有作业时,会检查作业运行时间,如果时间与当前时间匹配,则运行此作业。
-3. at命令是一次性定时计划任务,执行完一个任务后不再执行此任务了
-4. 在使用at命令的时候,一定要保证atd进程的启动,可以使用相关指令来查看
-
-​     ps -ef (检测正在运行的进程有哪些)          ps -ef | grep atd  (检测atd是否运行)
-
-### at命令格式
-
-at [ 选项 ] [时间]
-Ctrl+D 结束at命令的输入   **做两次**
-
-### at命令选项
-
-![image-20261010214335359](week02-权限与用户管理.assets/image-20261010214335359.png)
-
-### at时间定义
-
-at指定时间的方法:
-
-1. 接受在当天的hh:mm(小时:分钟)式的时间指定。假如该时间已过去,那么就放在第二天执行。例如:
-04:00
-2. 便用midnight(深夜),noon(中午),teatime(饮茶时间,一般是下午4点)等比较模糊的词语来指
-定时间。
-3. 采用12小时计时制,即在时间后面加上AM(上午)或PM(下午)来说明是上午还是下午。例如:12pm
-4. 指定命令执行的具体日期,指定格式为month day(月日)或mm/dd/yy(月/日/年)或dd.mm.yy
-(日.月.年),指定的日期必须跟在指定时间的后面。例如:04:00 2021-03-1（小的时间在大的日期前面）
-5. 使用相对计时法。指定格式为:now+count time-units,now就是当前时间,time-units是时间单位,
-这里能够是minutes(分钟)、hours(小时)、days(天)、weeks(星期)。count是时间的数量,
-几天,几小时。例如:now + 5 minutes
-6. 直接使用today(今天)、tomorrow(明天)来指定完成命令的时间。
-
-###  应用实例
-
-案例1:2天后的下午5点执行/bin/ls /home
-
-```bash
-at 5pm + 2 days   #enter
-/bin/ls /home #俩次ctrl+D
-```
-
-案例2:atq命令来查看系统中没有执行的工作任务
-
-```bash
-atq   #不是atp
-```
-
-案例3:明天17点钟,输出时间到指定文件内 比如/root/date100.log
-
-```bash
-at 5pm tomorrow
-date > /root/date100.log
-```
-
-案例4:2分钟后,输出时间到指定文件内比如/root/date200.log
-
-#root得有权限才能写入，在普通用户是执行不成功的
-
-#执行完毕atq看不到了，只能cat /root/date200.log 检验
-
-```bash
-at now + 2 minutes
-date > /root/date200.log
-```
-
-案例5:删除已经设置的任务，atrm编号
-
-```bash
-atrm 5
-```
-
-#### 周期任务 vs 一次性任务
-
-| 工具 | 任务类型 | 守护进程 | 重启策略 | 典型场景 |
-| --- | --- | --- | --- | --- |
-| `crontab` | 周期性 | `cron` | 修改保存自动生效 | 每天凌晨 2 点备份、每 5 分钟监控 |
-| `at` | 一次性 | `atd`（默认 60s 检查队列） | 跑完即删除 | "明天下午 5 点执行一次" |
-
-## 磁盘
-
-#### 磁盘分区机制
-
-##### linux分区
-
-###### 原理介绍
-
-1. Linux来说无论有几个分区,分给哪一目录使用,它归根结底就只有一个根目录,一个独立且唯一的
-文件结构,Linux中每个分区都是用来组成整个文件系统的一部分。
-
-2. Linux采用了一种叫“载入”的处理方法,它的整个文件系统中包含了一整套的文件和目录,且将一个分区和一个目录联系起来。这时要载入的一个分区将使它的存储空间在一个目录下获得。
-3. 示意图
-
-![image-20261011163014312](week02-权限与用户管理.assets/image-20261011163014312.png)
-
-#####  硬盘说明
-
-1. Linux硬盘分IDE硬盘和SCSI硬盘,目前基本上是SCSI硬盘
-
-2. 对于IDE硬盘,驱动器标识符为“hdx~ ”,其中“hd”表明分区所在设备的类型,这里是指IDE硬盘。“x”为盘号(a为基本盘,b为基本从属盘,c为辅助主盘,d为辅助从属盘),“~”代表分区,
-前四个分区用数字1到4表示,它们是主分区或扩展分区,从5开始就是逻辑分区。例,hda3表示为第一个IDE硬盘上的第三个主分区或扩展分区,hdb2表示为第二个IDE硬盘上的第二个主分区或扩展分区。
-
-3. 对于SCSI硬盘则标识为“sdx~”,SCSI硬盘是用“sd”来表示分区所在设备的类型的,其余则和IDE硬盘的表示方法一样。
-
-#### 挂载
-
-##### 查看所有设备挂载情况
-
-命令：lsblk或者lsblk -f 
-
-![image-20261011211915772](week02-权限与用户管理.assets/image-20261011211915772.png)
-
-##### 经典案例
-
-###### 虚拟机增加硬盘
-
-- 步骤1：设置-硬盘-添加-重启
-
-![image-20261014213749234](week02-权限与用户管理.assets/image-20261014213749234.png)
-
-- 步骤2：分区
-
-分区命令 fdisk /dev/sdb
-
-开始对/sdb分区
-m 显示命令列表
-p 显示磁盘分区 同fdisk -1
-n 新增分区
-d 删除分区
-w 写入并退出
-说明:开始分区后输入n,新增分区,然后选择p,分区类型为主分区。两次回车默认剩余全部空间。**最后输入w写入分区并退出,若不保存退出输入q。**
-
-![image-20261014214010028](week02-权限与用户管理.assets/image-20261014214010028.png)
-
-- 步骤3：格式化磁盘
-  分区命令:mkfs -t ext4  /dev/sdb1         #其中ext4是分区类型
-- 步骤4 ：挂载:将一个分区与一个目录联系起来,
-  mount  设备名称 挂载目录
-  例如:mount  /dev/sdb1  /newdisk
-  去除挂载：    umount 设备名称 或者 挂载目录
-  例如:umount /dev/sdb1 或者 umount /newdisk
-
-**注意:用命令行挂载重启后会失效**
-
-- 步骤5:永久挂载:通过修改/etc/fstab实现挂载
-  添加完成后 执行mount -a 即刻生效
-
-![image-20261011223218643](week02-权限与用户管理.assets/image-20261011223218643.png)
-
-第一行是修改后的
-
-###### 完整操作步骤（按顺序来）
-
-![image-20261014214601301](week02-权限与用户管理.assets/image-20261014214601301.png)
-
-```bash
-# 1. 创建挂载目录（必须先建！）
-mkdir /newdisk
-
-# 2. 查看/dev/sdb1的UUID，复制出来
-blkid /dev/sdb1
-```
-
-拿到类似 `UUID="12ae1cc1-09e0-42ce-b659-063df3e7c941"`
-
-UUID="dedd2113-5945-4336-9615-c60eb5651b09" 
-
-```bash
-#3. 编辑fstab
-vim /etc/fstab   #sudo ,不然没权限
-```
-
-在文件末尾新增一行：
-
-```bash
-UUID=这里粘贴你的UUID    /newdisk    ext4    defaults    0    0
-#4. 最重要！测试fstab配置有没有写错！
-mount -a
-```
-
-👉 如果`mount -a`**没有任何报错**，代表配置没问题，重启自动挂载。 👉 如果报错，**千万别重启机器！** 改对文件再测试，否则开机进不了系统！
-
-![image-20261014215908736](week02-权限与用户管理.assets/image-20261014215908736.png)
-
-uuid上面那行不是磁盘挂载
-
-### 磁盘情况查询
-
-#####  查询系统整体磁盘使用情况
-
-```bash
-df -h
-```
-
-##### 查询指定目录的磁盘占用情况
-
-```bash
-du -h
-```
-
-查询指定目录的磁盘占用情况,默认为当前目录
-
--s指定目录占用大小汇总
-
--h 带计量单位
-
--a 含文件
-
---max-depth=1 子目录深度为1
-
--c列出明细的同时,增加汇总值
-
-![image-20261014221708941](week02-权限与用户管理.assets/image-20261014221708941.png)
-
-###### 应用实例
-
-查询/opt目录的磁盘占用情况,深度为1
-
-```bash
-cd /opt
-du -h --max-depth=1 /opt  #结果有opt本身
-du -hac --max-depth=1 /opt  #常用
-```
-
-##### 工作实用指令
-
-```bash
-#统计/opt文件夹下文件的个数
-ls -l /opt | grep "^-" | wc -l
-#统计/opt文件夹下目录的个数
-ls -l/opt | grep "^d" | wc -l
-#统计/opt文件夹下文件的个数,包括子文件夹里的
-ls -lR /opt | grep "^-" | wc -l
-#统计/opt文件夹下目录的个数,包括子文件夹里的
-ls -lR /opt | grep "^d" | wc -l
-#以树状显示目录结构 tree目录,注意,如果没有tree,则使用yum install tree（这是centos的）安装
-#应该是apt install tree
-tree /home/
+chmod 751 abc      # 等价于 chmod u=rwx,g=rx,o=x abc
 ```
 
 ---
 
-## 三件事总结
+## 6. sudo 与用户认证文件
 
-1. **查找与管道**：用 `find` 按名/拥有者/大小查文件，用 `grep -n` 过滤文本，`|` 把前一个命令的输出传给后一个
-2. **用户与权限**：`useradd/groupadd` 建用户和组，`chown/chgrp` 改所属，`chmod` 配 rwx（数字法 r=4 w=2 x=1）
-3. **磁盘与定时任务**：`fdisk` 分区→`mkfs` 格式化→`mount` 临时挂载→`/etc/fstab`+UUID 永久挂载；`crontab -e` 周期任务，`at` 一次性任务
+> 这一节是"用户管理"里真正被问到的部分，也是我最初漏掉的部分。
 
-## 学完能干什么
+### 6.1 提权：sudo，而不是直接用 root
 
-- 维护一台多用户 Linux 服务器（建账号、配组、改所属、限权限）
-- 做权限审计（看 `ls -l` 知道每个文件谁能读/写/执行、能进哪个目录）
-- 部署日常 cron 任务（备份、清理、监控），用 `at` 排一次性运维动作
-- 给服务器加硬盘：分区、格式化、临时挂载、配置永久挂载（5 步流程可演示）
+```bash
+sudo <命令>              # 临时以 root 身份执行
+sudo -l                  # 看"我被允许执行哪些 sudo 命令"
+sudo -i                  # 切到 root 的登录 shell（有完整 root 环境变量）
+```
 
+**给一个普通用户管理员权限**（Ubuntu 的做法）：
+
+```bash
+sudo usermod -aG sudo 用户名       # -aG = append to Group，必须带 -a，否则会覆盖掉原有附加组
+```
+
+> ⚠️ `-aG` 的 `-a`（append）**不能省**。只写 `-G` 会把用户从其他附加组里踢出去，
+> 这是 `usermod` 最经典的坑。
+
+改 `/etc/sudoers` 时**必须**用：
+
+```bash
+sudo visudo        # 它会做语法检查；直接 vim /etc/sudoers 写错会导致所有人用不了 sudo
+```
+
+> CentOS 上管理员组叫 `wheel`，Ubuntu 上叫 `sudo`——这是两套发行版的一个常见差异。
+
+### 6.2 三个认证文件
+
+| 文件 | 作用 | 谁能读 |
+|---|---|---|
+| `/etc/passwd` | 用户账号信息 | 所有人 |
+| `/etc/shadow` | **密码哈希**与密码策略 | 只有 root |
+| `/etc/group` | 组信息 | 所有人 |
+
+`/etc/passwd` 每行 7 个字段：
+
+```text
+fox:x:1001:1001::/home/fox:/bin/bash
+ │   │   │    │  │    │        └── 7. 登录 shell（/usr/sbin/nologin = 禁止登录）
+ │   │   │    │  │    └─────────── 6. 家目录
+ │   │   │    │  └──────────────── 5. 备注（GECOS，通常空）
+ │   │   │    └─────────────────── 4. GID 主组号
+ │   │   └──────────────────────── 3. UID
+ │   └──────────────────────────── 2. 密码占位符（x = 真密码在 shadow 里）
+ └──────────────────────────────── 1. 用户名
+```
+
+`/etc/shadow` 第二列是关键：
+
+- `x` 出现在 passwd 里 → 表示**密码在 shadow 中**（不是密码本身）
+- shadow 里是 `$6$...` → SHA-512 哈希（`$1$`=MD5，`$5$`=SHA-256）
+- **`!!` 或 `*`** → 账号**被锁定**，不能密码登录
+- **空** → 无密码，可直接登录（**高危，等保必查项**）
+
+```bash
+sudo grep -E '^[^:]+:[^!*]' /etc/shadow    # 查有没有空密码/异常账号
+```
+
+### 6.3 密码策略与登录审计
+
+```bash
+sudo chage -l 用户名          # 看密码有效期：上次修改、过期时间、是否强制修改
+sudo chage -M 90 用户名       # 设密码 90 天过期
+```
+
+> `chage` 是**等保测评里"口令定期更换"那条的直接落地命令**，
+> 测评时看的就是 `chage -l` 的输出。
+
+```bash
+last                 # 历史登录记录（谁、什么时候、从哪个 IP）
+lastlog               # 每个用户的最后一次登录时间
+w                     # 当前谁在线、在干嘛
+who                   # 当前登录了哪些用户
+```
+
+> 排查"这台机有没有被别人登过"，第一件事就是 `last` + `lastb`（失败登录）。
+
+**面试能讲的一句**
+
+> 给权限用 sudo 组，不用共享 root 密码；
+> 密码哈希在 `/etc/shadow`，只有 root 能读，`!!` 表示锁定、空密码是高危；
+> `chage -l` 查密码有效期，`last` / `lastlog` 查登录历史——这是安全审计的起点。
+
+---
+
+## 7. 特殊权限：SUID / SGID / Sticky
+
+普通权限之外还有三位，加在 `rwx` 前面（数字法的第 4 位）：
+
+| 名称 | 数字 | 作用在哪 | 效果 |
+|---|---|---|---|
+| **SUID** | 4 | 可执行文件 | 执行时**临时获得文件所有者的身份**（`passwd` 就是靠它让普通用户改自己的密码） |
+| **SGID** | 2 | 可执行文件 / 目录 | 目录上：新建文件**自动继承目录的组** |
+| **Sticky** | 1 | 目录 | 只有文件所有者能删自己的文件（`/tmp` 就是） |
+
+```bash
+ls -l /usr/bin/passwd          # 看到 -rwsr-xr-x，s 就是 SUID
+chmod 4755 file                 # 设 SUID
+chmod 2755 dir                  # 设 SGID
+chmod 1777 /tmp                 # 设 Sticky
+
+find / -perm -4000 -type f 2>/dev/null     # 找出系统里所有带 SUID 的文件
+```
+
+> ⚠️ **`find / -perm -4000` 是安全方向的常用动作**：SUID 程序会以 root 身份运行，
+> 一个可写的、或来路不明的 SUID 文件就是**提权入口**。
+> 我在安全方向上的理解是：权限审计不只看 `rwx`，**特殊权限位才是提权的高发区**。
+
+**面试能讲的一句**
+
+> `ls -l` 里出现 `s`（如 `-rwsr-xr-x`）就是 SUID，执行者会临时拿到文件所有者的权限；
+> `passwd` 靠它工作，但也正因如此，**排查提权风险要 `find / -perm -4000` 过一遍**。
+
+---
+
+## 8. 实战：多用户协作与权限
+
+> 以下两个案例我都在 Ubuntu Server 上完整做过，包括中间做错的地方。
+
+### 8.1 案例一：警匪（police / bandit）
+
+```bash
+# root
+groupadd police && groupadd bandit
+useradd -m -g police jack && useradd -m -g police jerry
+useradd -m -g bandit xh   && useradd -m -g bandit xq
+passwd jack && passwd jerry && passwd xh && passwd xq
+```
+
+jack 建文件，自己读写、同组读、其他组无权限：
+
+![jack640](week02-权限与用户管理.assets/image-20261008154709009.png)
+
+```bash
+su - jack
+cd ~ && vim jack.txt
+chmod 640 jack.txt          # rw-r-----
+chmod g=rw,o=r jack.txt     # 改成同组可读写、其他组只读
+```
+
+把 xh 拉进警察组，再测 xh / xq 的访问差异：
+
+```bash
+sudo usermod -g police xh
+```
+
+![xh xq 测试](week02-权限与用户管理.assets/image-20261008155839417.png)
+
+![结果](week02-权限与用户管理.assets/image-20261008160932244.png)
+
+为什么 xq 进不去：
+
+![原因](week02-权限与用户管理.assets/image-20261008161100731.png)
+
+**结论：要对目录内的文件做操作，先得有对那个目录的相应权限（`x` 进入、`w` 增删）。**
+文件权限和目录权限是两层，缺哪一层都进不去。
+
+### 8.2 案例二：西游记（sx / yg）
+
+```bash
+# root
+groupadd sx && groupadd yg
+useradd -m ts && useradd -m ss && useradd -m wk && useradd -m bj
+passwd ts && passwd ss && passwd wk && passwd bj
+usermod -g sx ts && usermod -g sx ss
+usermod -g yg wk && usermod -g yg bj
+
+# 悟空建文件，给八戒读写
+su - wk
+vim monkey.java            # 内容：i am a monkey
+chmod g+w monkey.java
+chmod g+rwx /home/wk       # ← 关键：还要给八戒进入/home/wk 目录的权限
+
+# 八戒进去改
+su - bj
+cd /home/wk && vim monkey.java
+
+# 沙僧改投妖怪组后也能改
+su - root
+usermod -g yg ss
+```
+
+目录 rwx 的细节测试：
+
+![目录rwx细节](week02-权限与用户管理.assets/image-20261008184802454.png)
+
+- `x`：能 `cd` 进去
+- `r`：能 `ls` 出内容
+- `w`：能在里面创建/删除文件
+
+### 8.3 我在这两个案例里踩的坑
+
+1. **`cd /home/jack` 里创建文件 ≠ 登录 jack 创建文件**。
+   前者是 `root:root`，后者才是 `jack:police`——当时卡在这里半天。
+2. **`chmod a=r` 是赋值不是追加**，把 ugo 三组全设成只读了。
+3. **改文件权限不够，还得改目录权限**。八戒进不去 `/home/wk` 不是文件的问题，是目录没给 `x`。
+4. **`usermod` 改组忘了写 `-g`**，命令不报错但什么都没改。
+5. **新建用户不设密码，`su` 切不过去**（root 可以，普通用户不行）。
+6. 提示符 `xh@ubuntu:jack$` 里，`xh` 是**用户**，`jack` 是**当前目录**——刚开始看反过。
+
+### 8.4 顺带：Ubuntu 纯命令行开多个终端
+
+```bash
+Ctrl+Alt+F2 / F3          # 切虚拟控制台 tty2 / tty3
+sudo apt install tmux     # 或装 tmux，一个连接里分屏
+tmux                      # Ctrl+B 后按 % 左右分屏，Ctrl+B 后按 o 切换
+```
+
+![tmux](week02-权限与用户管理.assets/image-20261008182047024.png)
+
+**面试能讲的一句**
+
+> 目录权限和文件权限是两层：进目录要 `x`，在里面增删要 `w`，能不能读写文件看文件自己的 `rwx`。
+> 排查"某个用户访问不了"，要**从目录往下逐层查**，只看文件权限是不够的。
+
+---
+
+## 9. 周期任务：crontab
+
+![crond](week02-权限与用户管理.assets/image-20261008215340645.png)
+
+### 基本用法
+
+```bash
+crontab -e        # 编辑（首次会让选编辑器，选 nano 最省事）
+crontab -l        # 列出当前用户的任务
+crontab -r        # 删除当前用户的所有任务（慎用，没有二次确认）
+```
+
+### 时间规则
+
+![参数细节](week02-权限与用户管理.assets/image-20261008214902643.png)
+
+| 符号 | 含义 | 例子 |
+|---|---|---|
+| `*` | 任意时间 | `* * * * *` 每分钟 |
+| `,` | 不连续的时间点 | `0 8,12,16 * * *` 每天 8/12/16 点 |
+| `-` | 连续范围 | `0 5 * * 1-6` 周一到周六凌晨 5 点 |
+| `*/n` | 每隔 n 单位 | `*/10 * * * *` 每 10 分钟 |
+
+**五个字段顺序：分 时 日 月 星期**，星号之间**必须有空格**。
+
+> 星期几和几号**不要同时指定**，容易变成"或"关系导致执行时间超出预期。
+
+### 实战
+
+```bash
+*/1 * * * * date >> /tmp/mydate                  # 每分钟追加当前日期
+# 跑脚本：先写脚本 → 加执行权限 → 再交给 cron
+chmod u+x /home/shiyi/my.sh
+*/1 * * * * /home/shiyi/my.sh
+0 2 * * * mysqldump -u root -p testdb > /home/db.bak   # 每天凌晨 2 点备份
+```
+
+![cron实例](week02-权限与用户管理.assets/image-20261013223424366.png)
+
+> ⚠️ **别把密码明文写进 crontab**（教程示例里那种 `-proot` 的写法）。
+> 正确做法是交互输入，或写进 `~/.my.cnf` 并把权限设为 `600`。
+> crontab 文件本身是能被同机其他用户读到的。
+
+### cron 的五个坑（面试高频："脚本手动能跑，cron 里不执行"）
+
+1. **环境变量不同**——cron 的 `PATH` 很窄，脚本里要用**命令的绝对路径**（`/usr/bin/python3` 而不是 `python3`）
+2. **相对路径失效**——cron 的工作目录不是你的家目录，脚本里写绝对路径
+3. **`%` 要转义**——cron 里 `%` 是特殊字符，需写成 `\%`
+4. **输出默认丢弃**——加上 `>> /var/log/mycron.log 2>&1` 才有据可查
+5. **文件会自动新建，但目录不会**——目录不存在就静默失败
+
+### 服务控制（Ubuntu 是 `cron`，不是 `crond`）
+
+```bash
+sudo systemctl status cron        # 看运行状态
+sudo systemctl restart cron       # 重启
+sudo systemctl enable cron        # 开机自启
+```
+
+![cron补充](week02-权限与用户管理.assets/image-20261013223848096.png)
+
+> `crontab -e` 保存后**自动生效，不用重启**；
+> 只有改了系统级 `/etc/crontab` 或排查故障时，才需要重启 cron。
+> 服务名：Ubuntu/Debian 是 `cron`，CentOS 是 `crond`。
+
+**面试能讲的一句**
+
+> 用户级任务用 `crontab -e`，保存即生效、不用重启；
+> 脚本在终端能跑但 cron 里不跑，90% 是**环境变量和相对路径**的问题。
+
+---
+
+## 10. 一次性任务：at
+
+![at](week02-权限与用户管理.assets/image-20261010221912155.png)
+
+`at` 是一次性的，**执行完自动删除**。
+
+```bash
+sudo apt install at          # Ubuntu 默认没装 at（CentOS 默认自带）
+sudo systemctl status atd     # 守护进程是 atd，每 60 秒检查一次作业队列
+
+at 5pm + 2 days              # 回车后输入命令，Ctrl+D 结束输入（要按两次）
+atq                          # 查看待执行队列
+atrm 5                       # 删除 5 号任务
+```
+
+时间写法（知道这几种就够）：`04:00`、`now + 5 minutes`、`5pm tomorrow`、`04:00 2021-03-01`。
+
+![at选项](week02-权限与用户管理.assets/image-20261010214335359.png)
+
+> 案例里的输出路径 `/root/date100.log` 在 Ubuntu 上要换成自己的家目录——
+> **普通用户写不进 `/root`**，我当时在这里失败过一次。
+
+### 周期任务 vs 一次性任务
+
+| 工具 | 任务类型 | 守护进程 | 典型场景 |
+|---|---|---|---|
+| `crontab` | 周期性 | `cron` | 每天凌晨 2 点备份、每 5 分钟监控 |
+| `at` | 一次性 | `atd`（60s 检查队列） | "明天下午 5 点执行一次" |
+
+---
+
+## 11. 磁盘分区与挂载
+
+![分区示意](week02-权限与用户管理.assets/image-20261011163014312.png)
+
+Linux 只有一个根目录，分区是通过**挂载**挂到某个目录上的——不是 Windows 的 C: D: 盘概念。
+
+```bash
+lsblk -f          # 查看所有设备与挂载情况（含 UUID 和文件系统类型）
+```
+
+![lsblk](week02-权限与用户管理.assets/image-20261011211915772.png)
+
+> **设备命名**：教程讲的 IDE（`hda`）/ SCSI（`sda`）已经过时。
+> 现在常见的是 SATA/SCSI 的 `sda`、云主机的 `vda`、NVMe 的 `nvme0n1`。
+> 我虚拟机里加的第二块盘是 `/dev/sdb`。
+
+### 加一块硬盘的完整五步（我在 VMware 里做过）
+
+**步骤 1**：VMware 设置 → 添加硬盘 → 重启
+
+![加硬盘](week02-权限与用户管理.assets/image-20261014213749234.png)
+
+**步骤 2**：分区
+
+```bash
+sudo fdisk /dev/sdb      # n 新增 / p 主分区 / w 写入并退出（q 是不保存退出）
+sudo fdisk -l             # 小写 -l，查看分区结果
+```
+
+![分区](week02-权限与用户管理.assets/image-20261014214010028.png)
+
+**步骤 3**：格式化
+
+```bash
+sudo mkfs -t ext4 /dev/sdb1
+```
+
+**步骤 4**：临时挂载（**重启后失效**）
+
+```bash
+sudo mkdir /newdisk
+sudo mount /dev/sdb1 /newdisk
+sudo umount /dev/sdb1        # 或 umount /newdisk
+```
+
+**步骤 5**：永久挂载（写 `/etc/fstab`）
+
+![fstab](week02-权限与用户管理.assets/image-20261011223218643.png)
+
+![完整步骤](week02-权限与用户管理.assets/image-20261014214601301.png)
+
+```bash
+sudo mkdir /newdisk
+sudo blkid /dev/sdb1         # 拿 UUID，比 /dev/sdb1 稳（设备名可能变）
+sudo vim /etc/fstab
+```
+
+在 `/etc/fstab` 末尾加一行：
+
+```text
+UUID=dedd2113-5945-4336-9615-c60eb5651b09    /newdisk    ext4    defaults    0    0
+```
+
+（`UUID=` 后面那串就是我本机 `/dev/sdb1` 的 UUID，用 `blkid` 查出来粘进去的）
+
+```bash
+sudo mount -a                # 测试配置有没有写错
+```
+
+![fstab验证](week02-权限与用户管理.assets/image-20261014215908736.png)
+
+> ⚠️ **`mount -a` 没报错才算通过。报错就千万别重启**——fstab 写错会开不了机。
+> 这是我做的每一步都带验证的原因：改 `/etc` 下的关键配置前，先备份、再测试、最后才重启。
+
+**面试能讲的一句**
+
+> 加盘五步：分区 `fdisk` → 格式化 `mkfs` → `mkdir` → `mount` 临时挂载 → 写 `/etc/fstab` 永久挂载。
+> fstab 里用 **UUID 而不是设备名**，因为 `/dev/sdb` 这种名字在重启后可能变；
+> 改完必须 `mount -a` 验一遍，不报错才能重启。
+
+---
+
+## 12. 磁盘使用查询：df / du
+
+```bash
+df -h                              # 看整个系统的磁盘使用率（分区视角）
+du -h --max-depth=1 /opt           # 看指定目录下各子目录占多大（目录视角）
+du -hac --max-depth=1 /opt          # -a 含文件、-c 最后加汇总值
+```
+
+![du](week02-权限与用户管理.assets/image-20261014221708941.png)
+
+> **`df` 看还剩多少，`du` 看谁占的多**。
+> "磁盘满了"的排查顺序：`df -h` 确认哪个分区满 → `du -h --max-depth=1` 逐层往下找大目录。
+
+### 常用统计组合
+
+```bash
+ls -l  /opt | grep "^-" | wc -l      # /opt 下文件的个数
+ls -l  /opt | grep "^d" | wc -l      # /opt 下目录的个数
+ls -lR /opt | grep "^-" | wc -l       # 含子目录里的文件数
+ls -lR /opt | grep "^d" | wc -l       # 含子目录里的目录数
+tree /home/                          # 树状显示（没装就 sudo apt install tree）
+```
+
+> 装软件一律用 `apt`，教程里的 `yum install` 是 CentOS 的，Ubuntu 上没有。
+
+---
+
+## 附：本笔记的统一规则
+
+1. 正文只记**我在 Ubuntu 上亲手执行过的命令**；CentOS / 教程内容一律压成「> 对照标注」一行。
+2. **纯查询类、输出一眼看明白的命令不贴输出**——记命令和用法即可；
+   需要解读的输出（权限位、`lsblk`、fstab）才贴。
+3. 需要 root 权限的命令统一写 `sudo`，不直接切 root 操作。
+4. 每节末尾留一句**面试能讲的话**——笔记的目的是攒讲得出来的东西，不是攒命令清单。
+5. 动 `/etc` 下的配置（`fstab`、`sudoers`）、改防火墙、卸载软件之前：**先备份 / 先拍快照**，改完立刻验证。
