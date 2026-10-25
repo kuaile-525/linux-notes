@@ -128,3 +128,156 @@ shiyi@ubuntu:~/shcode$ ./shell.sh 100 200
 2
 ```
 
+#### 预定义变量
+
+##### 基本介绍
+
+就是shell设计者事先已经定义好的变量,可以直接在shell脚本中使用
+
+#####  基本语法
+
+$$       (功能描述:当前进程的进程号(PID))
+$!         (功能描述:后台运行的最后一个进程的进程号(PID))
+$?         (功能描述:最后一次执行的命令的返回状态。如果这个变量的值为0,证明上一个命令正确执行;如果这个变量的值为非0(具体是哪个数,由命令自己来决定),则证明上一个命令执行不正确了。)
+
+##### 应用实例
+
+在一个shell脚本中简单使用一下预定义变量  prevar.sh
+
+```markdown
+# prevar.sh
+#!/bin/bash
+echo "当前进程=$$"
+echo "后台进行的最后一个进程=$!"
+/home/shiyi/shcode/myshell.sh
+echo "后台进行的最后一个进程=$!"
+echo "最后一次执行指令的返回状态=$?"
+~
+# 输出结果
+当前进程=2202
+后台进行的最后一个进程=
+1=,2=，3=,4=
+所有参数=
+
+0
+后台进行的最后一个进程=
+最后一次执行指令的返回状态=0
+# myshell.sh
+#!/bin/bash
+
+echo "1=$1,2=$2，3=$3,4=$4"
+echo "所有参数=$*"
+echo "$@"
+echo "$#"
+```
+
+#### 运算符
+
+##### 基本介绍
+
+学习如何在shell中进行各种运算操作。
+
+##### 基本语法
+
+1. “\$((运算式))”或“$[运算式]”或者expr m+n//expression表达式
+
+2. 注意expr运算符间要有空格
+
+3. \`expr m - n `
+4. expr \\*,/,% 乘,除,取余
+
+##### 应用实例
+
+```markdown
+# bash
+#!/bin/bash
+#案例1：计算（2+3）*4的值
+#法一
+res1=$(((2+3)*4))
+echo "res1=$res1"
+#法二
+res2=$[(2+3)*4]
+echo "res2=$res2"
+#法三
+temp=`expr 2 + 3`
+res4=`expr $temp \* 4`
+echo "temp=$temp"
+echo "res4=$res4"
+#求出两参数的和
+SUM=$[$1+$2]
+echo "sum=$SUM"
+~
+# 输出
+shiyi@ubuntu:~/shcode$ ./oper.sh 20 30
+res1=20
+res2=20
+temp=5
+res4=20
+sum=50
+```
+
+#### 条件判断
+
+判断语句
+
+##### 基本语法
+
+[ condition ] (注意condition前后要有空格)
+#非空返回true,可使用$?验证(0为true,>1为false)
+
+##### 应用实例
+
+[ hspEdu ]                 返回true
+
+[ ]                                 返回false
+
+[ condition ] && echo OK II echo notok         条件满足,执行后面的语
+
+##### 判断语句
+
+1)=字符串比较
+
+2)两个整数的比较
+-It 小于   -le 小于等于 little equal       -eq等于        -gt大于      ge 大于等于       -ne 不等于
+
+3)按照文件权限进行判断
+-r 有读的权限
+-w 有写的权限
+-x有执行的权限
+
+4)按照文件类型进行判断
+-f文件存在并且是一个常规的文件
+-e 文件存在
+-d 文件在并是一个目录
+
+##### 应用实例
+
+```markdown
+#!/bin/bash
+# "ok"是否等于"ok"
+if [ "ok"="ok" ]     #
+then
+        echo "equal"
+fi
+# 23是否大于22
+if [ 23 -ge 22 ]
+then
+        echo "大于"
+fi
+# /home/shiyi/aaa.txt 是否存在
+if [ -f /home/shiyi/aaa.txt ]
+then
+        echo "存在"
+fi
+# 为真
+if [ hspedu ]  #即使中间什么也没有也需要一个空格
+then
+        echo "真"
+fi
+# 输出
+shiyi@ubuntu:~/shcode$ sh ifdemo.sh
+equal
+大于
+真
+```
+
