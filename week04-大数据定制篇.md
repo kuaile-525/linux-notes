@@ -238,7 +238,7 @@ sum=50
 1)=字符串比较
 
 2)两个整数的比较
--It 小于   -le 小于等于 little equal       -eq等于        -gt大于      ge 大于等于       -ne 不等于
+-It 小于   -le 小于等于 little equal       -eq等于        -gt大于      -ge 大于等于       -ne 不等于
 
 3)按照文件权限进行判断
 -r 有读的权限
@@ -279,5 +279,50 @@ shiyi@ubuntu:~/shcode$ sh ifdemo.sh
 equal
 大于
 真
+```
+
+#### 流程控制
+
+##### if判断
+
+基本语法
+
+```bash
+if [ 条件判断式 ]
+then
+代码
+fi
+```
+
+或者,多分支
+
+```bash
+if [ 条件判断式 ]
+then
+代码
+elif [ 条件判断式 ]
+then
+代码
+fi
+```
+
+注意事项:[条件判断式],中括号和条件判断式之间必须有空格
+应用实例 ifCase.sh
+案例:请编写一个shell程序,如果输入的参数,大于等于60,则输出“及格了”,如果小于60,则输出“不及格”
+
+```markdown
+# ifcase.sh
+if [ $1 -ge 60 ]
+then
+	echo "及格"
+elif [ $1 -l 60 ]
+then
+	echo "未及格"
+fi
+# bash
+chmod u+x ifcase.sh
+./ifcase.sh 90
+# 输出
+及格
 ```
 
